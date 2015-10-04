@@ -10,7 +10,7 @@
 #include <fcntl.h> // for open
 #include <unistd.h> // for close
 
-#define BUFFSIZE 500000
+#define BUFFSIZE 10000
 int FileSend(int socket_desc);
 
 

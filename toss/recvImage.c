@@ -8,7 +8,7 @@
 #include <fcntl.h> // for open
 #include <unistd.h> // for close
 
-#define BUFFSIZE 500000
+#define BUFFSIZE 10000
 void DieWithUserMessage(char * message);
 void HandleTCPClient(int clientSock);
 
