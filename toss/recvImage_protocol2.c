@@ -63,20 +63,30 @@ void HandleTCPClient(int clientSock) {
 	int image_size;
 	int flag = 1;
 	int numByteRcvd=0;
-	while(1) {
-		if(flag == 1){
-			flag = 0;
-			bzero(buffer,BUFFSIZE);
-			numByteRcvd = read(clientSock, buffer, 20);
-			image_size = atoi(buffer);
-			printf("image size : %d\n",image_size);
 
-			image_file = open("robot_view.jpg", O_WRONLY | O_CREAT | O_TRUNC);
+	while(1) {
+		if(flag >= 1){
+			if(flag ==1) {	// recv image data size
+				flag = 0;
+				bzero(buffer,BUFFSIZE);
+				numByteRcvd = read(clientSock, buffer, 20);
+				image_size = atoi(buffer);
+				printf("image size : %d\n",image_size);
+				if(image_size == 0 || image_size > 10000) { // if image_size ie wrong value cloase socket
+					break;
+				}
+				image_file = open("robot_view.jpg", O_WRONLY | O_CREAT | O_TRUNC);
+			}
+			else {	// send ack message to robot
+				flag = 1;
+				write(clientSock, "OK", 20)
+			}
+			
 		}	
-		else{  
+		else{  // recv image JPEG data
          	if(total_recv == image_size) {
          		total_recv =0;
-         		flag = 1;
+         		flag = 2;
 				close(image_file);
 	    		printf("success recv image\n");
 		        pid_t pid = fork();

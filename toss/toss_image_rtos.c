@@ -56,25 +56,44 @@ int main(int argc, char* argv[]){
         int flag=1;
         int numByteRcvd=0;
         int total_recv = 0;
+        
         //char tmp[20];
         while(1) {
-            if(flag == 1){
-                flag = 0;
+            if(flag >= 1) {
+                if(flag == 1) {
+                    flag = 0;
 
-                // read image size from robot
-                bzero(buffer,BUFFSIZE);
-                numByteRcvd = read(robot_desc, buffer, 20);
-                image_size = atoi(buffer);
-                printf("image size : %d\n",image_size);
+                    // read image size from robot
+                    bzero(buffer,BUFFSIZE);
+                    numByteRcvd = read(robot_desc, buffer, 20);
+                    image_size = atoi(buffer);
+                    printf("image size : %d\n",image_size);
 
-                // send image size to server
-                int numByteSent = write(socket_desc, buffer, numByteRcvd);
-                if( numByteSent < 0){
-                    printf("send() failed");
-                    return 0;
+                    // send image size to server
+                    int numByteSent = write(socket_desc, buffer, numByteRcvd);
+                    if( numByteSent < 0){
+                        printf("send() failed");
+                        return 0;
+                    }
+                    else if (numByteSent != numByteRcvd) {
+                        printf("send() sent unexpected number of bytes");
+                    }
                 }
-                else if (numByteSent != numByteRcvd) {
-                    printf("send() sent unexpected number of bytes");
+                else {
+                    flag = 1;
+                    bzero(buffer,BUFFSIZE);
+                    numByteRcvd = read(socket_desc, buffer, 20);
+                    printf("server recv image? : %s\n",buffer);
+
+                    // send image size to server
+                    int numByteSent = write(robot_desc, buffer, numByteRcvd);
+                    if( numByteSent < 0){
+                        printf("send() failed");
+                        return 0;
+                    }
+                    else if (numByteSent != numByteRcvd) {
+                        printf("send() sent unexpected number of bytes");
+                    }
                 }
             }   
             else{  
