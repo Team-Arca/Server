@@ -56,7 +56,7 @@ int main(int argc, char* argv[]){
         int flag=1;
         int numByteRcvd=0;
         int total_recv = 0;
-        
+        int image_size = 0;
         //char tmp[20];
         while(1) {
             if(flag >= 1) {
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]){
                 }
                 else { 
                     bzero(buffer, image_size);
-                    numByteRcvd = read(clientSock, buffer, image_size - total_recv);
+                    numByteRcvd = read(robot_desc, buffer, image_size - total_recv);
                     total_recv += numByteRcvd;
                     write(socket_desc, buffer, numByteRcvd);
                 }

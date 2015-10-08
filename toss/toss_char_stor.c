@@ -17,9 +17,9 @@ int FileSend(int socket_desc);
 int main(int argc, char* argv[]){
 
     char* server_IP = "220.149.85.54";
-    int server_port = 4547;
+    int server_port = 9865;
     char* robot_IP = "192.168.2.100";
-    int robot_port = 9002;
+    int robot_port = 9003;
     unsigned char buffer[BUFFSIZE];
 
     while(1){
