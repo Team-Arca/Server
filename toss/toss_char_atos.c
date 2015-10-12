@@ -12,11 +12,11 @@
 
 #define BUFFSIZE 64
 void DieWithUserMessage(char * message);
-void HandleTCPClient(int clientSock);
+void HandleTCPClient(int recv_client_sock, int send_client_sock);
 
 static const int MAXPENDING =5;
 
-char main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
     //if (argc !=2 )
     //  DieWithUserMessage("Parameter(s)", "<Server Port>");
 
@@ -68,7 +68,7 @@ char main(int argc, char* argv[]) {
         
         if( recv_client_sock <0 )
             DieWithUserMessage("recv accept() failed");
-        HandleTCPClient(clientSock);        
+        HandleTCPClient(recv_client_sock, send_client_sock);        
     }
 }
 
@@ -77,7 +77,7 @@ void DieWithUserMessage(char * message){
     exit(-1);
 }
 
-void HandleTCPClient(int clientSock) {
+void HandleTCPClient(int recv_client_sock, int send_client_sock){
     char buffer[BUFFSIZE];
 
     // 클라이언트로 부터 메시지 수신
@@ -95,7 +95,7 @@ void HandleTCPClient(int clientSock) {
             DieWithUserMessage("send() sent unexpected number of bytes");
 
         // 받을 수 있는 데이터가 더 남아 있는지 확인
-        numByteRcvd = recv(clientSock, buffer, BUFFSIZE, 0);
+        numByteRcvd = recv(recv_client_sock, buffer, BUFFSIZE, 0);
         if(numByteRcvd < 0)
         DieWithUserMessage("recv() failed");
     }

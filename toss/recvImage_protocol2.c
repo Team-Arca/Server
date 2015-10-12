@@ -75,11 +75,11 @@ void HandleTCPClient(int clientSock) {
 				if(image_size == 0 || image_size > 10000) { // if image_size ie wrong value cloase socket
 					break;
 				}
-				image_file = open("robot_view.jpg", O_WRONLY | O_CREAT | O_TRUNC);
+				image_file = open("ready_img.jpg", O_WRONLY | O_CREAT | O_TRUNC | S_IRWXU | S_IRWXG | S_IRWXO);
 			}
 			else {	// send ack message to robot
 				flag = 1;
-				write(clientSock, "OK", 20)
+				write(clientSock, "OK", 20);
 			}
 			
 		}	
@@ -91,7 +91,7 @@ void HandleTCPClient(int clientSock) {
 	    		printf("success recv image\n");
 		        pid_t pid = fork();
 		        if(pid == 0) {
-			        execlp("chmod","chmod","777","test.jpg",NULL);
+			        execlp("mv","mv","ready_img","robot_view.jpg",NULL);
 			        exit(0);
 				}
 			}

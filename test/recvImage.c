@@ -7,10 +7,10 @@
 #include <arpa/inet.h>
 #include <fcntl.h> // for open
 #include <unistd.h> // for close
-
+#include "socket.h"
 #define BUFFSIZE 10000
 void DieWithUserMessage(char * message);
-void HandleTCPClient(int clientSock, int *pipe);
+void HandleTCPClient(int client_sock, int *pipe);
 
 static const int MAXPENDING =5;
 
@@ -28,69 +28,29 @@ int main(int argc, char* argv[]) {
 	else if( pid == 0) { //child
 		close(pipe[0]);
 		char buffer[BUFFSIZE];
-
-		char* cmd_IP = "127.0.0.1";
-		int cmd_port = 611;
-		struct sockaddr_in cmd_addr;
-		int cmd_desc = socket(PF_INET, SOCK_STREAM, 0);
-		bzero(&cmd_addr,sizeof(cmd_addr));
-		cmd_addr.sin_family = AF_INET;
-		cmd_addr.sin_addr.s_addr = inet_addr(cmd_IP);
-		cmd_addr.sin_port = htons(cmd_port);
 		while(1) {
-			if(connect(cmd_desc, (struct sockaddr *)&cmd_addr, sizeof(cmd_addr))<0) {
-				printf("Cannot cmd connect\n");
-				exit(0);
-			}
-
+			while( !(cmd_desc = ConnectSocket("127.0.0.1",611)) );
+			
 			while(1) {
 				int numByteRcvd = read(pipe[1],buffer,20);
 				printf("				%s\n",buffer);
 				if(buffer == "image chane")
 					write(cmd_desc, buffer, numByteRcvd);
 			}
-		}   
-		close(cmd_desc);
+			close(cmd_desc);
+		}
 		close(pipe[1]);
 	}
 	
 
 	// parent
 	close(pipe[1]);
-	in_port_t servPort = 4547;
-	//연결 요청을 처리하는 소켓 생성
-	int servSock; 
-	if((servSock = socket(PF_INET, SOCK_STREAM, 0)) < 0 )
-		DieWithUserMessage("socket() failed");
-
-	// 지역 주소 구조체 생성
-	struct sockaddr_in servAddr;					// 지역 주소
-	memset(&servAddr, 0, sizeof(struct sockaddr_in));			// 0으로 구조체 초기화
-	servAddr.sin_family = AF_INET;					// IPv4 주소 패밀리
-	servAddr.sin_addr.s_addr = htonl(INADDR_ANY);	// 호스트의 어떠한 IP로도 연결 요청 수락
-	servAddr.sin_port = htons(servPort);	// 지역포트
-
-	// 지역 주소에 바인드
-	if(bind(servSock, (struct sockaddr*) &servAddr, sizeof(servAddr)) < 0)
-		DieWithUserMessage("bind() failed");
-
-	// 소켓이 들어오는 요청을 처리할 수 있도록 설정
-	if(listen(servSock, MAXPENDING) < 0)
-		DieWithUserMessage("listen() failed");
+	int serv_sock = MakeSocket(4547);
 
 	while(1) { // 무한 반복
-		struct sockaddr_in clientAddr;
-		printf("wait accept\n");
-		socklen_t clientAddrlen = sizeof(clientAddr);
-
-		//클라이언트의 연결을 기다림
-		int clientSock = accept(servSock, (struct sockaddr *) &clientAddr, &clientAddrlen);
-		if( clientSock <0 )
-			DieWithUserMessage("accept() failed");
-		printf("client accept!!\n");
-		HandleTCPClient(clientSock, pipe);		
+		int client_sock = AcceptSocket(serv_sock);
+		HandleTCPClient(client_sock, pipe);		
 	}
-
 	close(pipe[0]);
 }
 
@@ -99,7 +59,7 @@ void DieWithUserMessage(char * message){
 	exit(-1);
 }
 
-void HandleTCPClient(int clientSock, int *pipe) {
+void HandleTCPClient(int client_sock, int *pipe) {
 	unsigned char buffer[BUFFSIZE];
 	int image_file;
 	int total_recv=0;
@@ -112,7 +72,7 @@ void HandleTCPClient(int clientSock, int *pipe) {
 			if(flag ==1) {	// recv image data size
 				flag = 0;
 				bzero(buffer,BUFFSIZE);
-				numByteRcvd = read(clientSock, buffer, 20);
+				numByteRcvd = read(client_sock, buffer, 20);
 				image_size = atoi(buffer);
 				printf("image size : %d\n",image_size);
 				if(image_size == 0 || image_size > 10000) { // if image_size ie wrong value cloase socket
@@ -122,7 +82,7 @@ void HandleTCPClient(int clientSock, int *pipe) {
 			}
 			else {	// send ack message to robot
 				flag = 1;
-				write(clientSock, "OK", 20);
+				write(client_sock, "OK", 20);
 			}
 			
 		}	
@@ -142,7 +102,7 @@ void HandleTCPClient(int clientSock, int *pipe) {
 			}
 			else { 
 				bzero(buffer,image_size);
-				numByteRcvd = read(clientSock, buffer, image_size - total_recv);
+				numByteRcvd = read(client_sock, buffer, image_size - total_recv);
 				total_recv += numByteRcvd;
 				write(image_file, buffer, numByteRcvd); 
 				printf("write data size : %d",numByteRcvd);
@@ -153,5 +113,5 @@ void HandleTCPClient(int clientSock, int *pipe) {
 		DieWithUserMessage("recv() failed");
 	}
 
-	close(clientSock); // 클라이언트 소켓 종료
+	close(client_sock); // 클라이언트 소켓 종료
 }
