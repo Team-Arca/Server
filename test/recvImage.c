@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
 			while(1) {
 				int numByteRcvd = read(pipe[1],buffer,20);
 				printf("				%s\n",buffer);
-				if(buffer == "image chane")
+				if(buffer == "image change")
 					write(cmd_desc, buffer, numByteRcvd);
 			}
 			close(cmd_desc);
@@ -64,13 +64,13 @@ void HandleTCPClient(int client_sock, int *pipe) {
 	int image_file;
 	int total_recv=0;
 	int image_size;
-	int flag = 1;
+	int flag = 0;
 	int numByteRcvd=0;
 
 	while(1) {
-		if(flag >= 1){
-			if(flag ==1) {	// recv image data size
-				flag = 0;
+		switch(flag) {
+			case 0:
+				flag = 1;
 				bzero(buffer,BUFFSIZE);
 				numByteRcvd = read(client_sock, buffer, 20);
 				image_size = atoi(buffer);
@@ -79,15 +79,10 @@ void HandleTCPClient(int client_sock, int *pipe) {
 					break;
 				}
 				image_file = open("ready_img.jpg", O_WRONLY | O_CREAT | O_TRUNC | S_IRWXU | S_IRWXG | S_IRWXO);
-			}
-			else {	// send ack message to robot
-				flag = 1;
-				write(client_sock, "OK", 20);
-			}
-			
-		}	
-		else{  // recv image JPEG data
-         	if(total_recv == image_size) {
+				break;
+				
+			case 1:
+				if(total_recv == image_size) {
          		total_recv =0;
          		flag = 2;
 				close(image_file);
@@ -99,16 +94,22 @@ void HandleTCPClient(int client_sock, int *pipe) {
 			        exit(0);
 				}
 				write(pipe[0],"image change",20);
-			}
-			else { 
-				bzero(buffer,image_size);
-				numByteRcvd = read(client_sock, buffer, image_size - total_recv);
-				total_recv += numByteRcvd;
-				write(image_file, buffer, numByteRcvd); 
-				printf("write data size : %d",numByteRcvd);
-			}
-    	}
-
+				}
+				else { 
+					bzero(buffer,image_size);
+					numByteRcvd = read(client_sock, buffer, image_size - total_recv);
+					total_recv += numByteRcvd;
+					write(image_file, buffer, numByteRcvd); 
+					printf("write data size : %d",numByteRcvd);
+				}
+				break;
+				
+			default :
+				flag = 0;
+				write(client_sock, "OK", 20);
+				break;
+		}
+		
 		if(numByteRcvd < 0)
 		DieWithUserMessage("recv() failed");
 	}

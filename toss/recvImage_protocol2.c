@@ -61,49 +61,50 @@ void HandleTCPClient(int clientSock) {
 	int image_file;
 	int total_recv=0;
 	int image_size;
-	int flag = 1;
+	int flag = 0;
 	int numByteRcvd=0;
 
 	while(1) {
-		if(flag >= 1){
-			if(flag ==1) {	// recv image data size
-				flag = 0;
+		switch(flag) {
+			case 0:
+				flag = 1;
 				bzero(buffer,BUFFSIZE);
 				numByteRcvd = read(clientSock, buffer, 20);
 				image_size = atoi(buffer);
 				printf("image size : %d\n",image_size);
 				if(image_size == 0 || image_size > 10000) { // if image_size ie wrong value cloase socket
-					break;
+					printf("wrong image size \n");
 				}
-				image_file = open("ready_img.jpg", O_WRONLY | O_CREAT | O_TRUNC | S_IRWXU | S_IRWXG | S_IRWXO);
-			}
-			else {	// send ack message to robot
-				flag = 1;
-				write(clientSock, "OK", 20);
-			}
-			
-		}	
-		else{  // recv image JPEG data
-         	if(total_recv == image_size) {
-         		total_recv =0;
-         		flag = 2;
-				close(image_file);
-	    		printf("success recv image\n");
-		        pid_t pid = fork();
-		        if(pid == 0) {
-			        execlp("mv","mv","ready_img","robot_view.jpg",NULL);
-			        exit(0);
-				}
-			}
-			else { 
-				bzero(buffer,image_size);
-				numByteRcvd = read(clientSock, buffer, image_size - total_recv);
-				total_recv += numByteRcvd;
-				write(image_file, buffer, numByteRcvd); 
-				printf("write data size : %d",numByteRcvd);
-			}
-    	}
+				image_file = open("ready_img.jpg", O_WRONLY | O_CREAT | O_TRUNC , S_IRWXU | S_IRWXG | S_IRWXO);
+				break;
 
+			case 1:
+				if(total_recv == image_size) {
+	         		total_recv =0;
+	         		flag = 2;
+					close(image_file);
+		    		printf("success recv image\n");
+			        pid_t pid = fork();
+			        if(pid == 0) {
+				        execlp("mv","mv","ready_img.jpg","robot_view.jpg",NULL);
+				        exit(0);
+					}
+				}
+				else { 
+					bzero(buffer,image_size);
+					numByteRcvd = read(clientSock, buffer, image_size - total_recv);
+					total_recv += numByteRcvd;
+					write(image_file, buffer, numByteRcvd); 
+					printf("write data size : %d\n",numByteRcvd);
+				}
+				break;
+
+			default:
+				flag = 0;
+				write(clientSock, "OK", 20);
+				break;
+
+		}	
 		if(numByteRcvd < 0)
 		DieWithUserMessage("recv() failed");
 	}
