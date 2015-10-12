@@ -23,7 +23,7 @@ int main(int argc, char* argv[]){
     //char* robot_IP = "127.0.0.1";
     int robot_port = 9002;
     unsigned char buffer[BUFFSIZE];
-    int state =1;
+    int connect_state = 1
     while(1){
         struct sockaddr_in server_addr;
         int socket_desc = socket(PF_INET, SOCK_STREAM, 0);
@@ -59,20 +59,27 @@ int main(int argc, char* argv[]){
         int numByteRcvd=0;
         int total_recv = 0;
         int image_size = 0;
+        
         //char tmp[20];
-        while(state) {
-            state =1;
+        while(connect_state) {
             switch(flag) {
                 case 0:
                     flag = 1;
 
                     // read image size from robot
                     bzero(buffer,BUFFSIZE);
+                   
                     numByteRcvd = read(robot_desc, buffer, 20);
+                    if(numByteRcvd < 0) {
+                        printf("numByteRcvd wrong number\n");
+                        connect_state =0;
+                        break;
+                    }
                     image_size = atoi(buffer);
                     printf("image size : %d\n",image_size);
-                    if (image_size <= 0 | image_size >10000) {
-                        state =0;
+                    if (image_size <= 0 | image_size >10000){
+                        printf("image size wrong number\n");
+                        connect_state =0;
                         break;
                     }
 
@@ -90,7 +97,7 @@ int main(int argc, char* argv[]){
                 case 1:
                     if(total_recv == image_size) {
                         total_recv =0;
-                        flag = 0;
+                        flag = 2;
                         printf("send image\n");
                     }
                     else { 
@@ -102,20 +109,20 @@ int main(int argc, char* argv[]){
                     break;
 
                 default:
-                    // flag = 0;
-                    // bzero(buffer,BUFFSIZE);
-                    // numByteRcvd = read(socket_desc, buffer, 20);
-                    // printf("server recv image? : %s\n",buffer);
+                    flag = 0;
+                    bzero(buffer,BUFFSIZE);
+                    numByteRcvd = read(socket_desc, buffer, 20);
+                    printf("server recv image? : %s\n",buffer);
 
-                    // // send image size to server
-                    // int numByteSent = write(robot_desc, buffer, numByteRcvd);
-                    // if( numByteSent < 0){
-                    //     printf("send() failed");
-                    //     return 0;
-                    // }
-                    // else if (numByteSent != numByteRcvd) {
-                    //     printf("send() sent unexpected number of bytes");
-                    // }
+                    // send image size to server
+                    int numByteSent = write(robot_desc, buffer, numByteRcvd);
+                    if( numByteSent < 0){
+                        printf("send() failed");
+                        return 0;
+                    }
+                    else if (numByteSent != numByteRcvd) {
+                        printf("send() sent unexpected number of bytes");
+                    }
                     break;
             }
             

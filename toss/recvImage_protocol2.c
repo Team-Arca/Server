@@ -63,32 +63,50 @@ void HandleTCPClient(int clientSock) {
 	int image_size;
 	int flag = 0;
 	int numByteRcvd=0;
-
-	while(1) {
+	int connect_state =1;
+	int store_state =0;
+	while(connect_state) {
 		switch(flag) {
 			case 0:
 				flag = 1;
 				bzero(buffer,BUFFSIZE);
 				numByteRcvd = read(clientSock, buffer, 20);
+				if(numByteRcvd <=0){
+					printf("wrong image size \n");
+					connect_state =0;
+					break;
+				}
+
 				image_size = atoi(buffer);
 				printf("image size : %d\n",image_size);
 				if(image_size == 0 || image_size > 10000) { // if image_size ie wrong value cloase socket
 					printf("wrong image size \n");
+					connect_state =0;
+					break;
 				}
-				image_file = open("ready_img.jpg", O_WRONLY | O_CREAT | O_TRUNC , S_IRWXU | S_IRWXG | S_IRWXO);
+				if(store_state)
+					image_file = open("ready_img0.jpg", O_WRONLY | O_CREAT | O_TRUNC , S_IRWXU | S_IRWXG | S_IRWXO);
+				else
+					image_file = open("ready_img1.jpg", O_WRONLY | O_CREAT | O_TRUNC , S_IRWXU | S_IRWXG | S_IRWXO);
+				
 				break;
-
 			case 1:
 				if(total_recv == image_size) {
+					store_state = (store_state+1) %2;
 	         		total_recv =0;
 	         		flag = 0;
 					close(image_file);
 		    		printf("success recv image\n");
 			        pid_t pid = fork();
 			        if(pid == 0) {
-				        execlp("mv","mv","ready_img.jpg","robot_view.jpg",NULL);
+			        	printf("name change\n");
+				        if(store_state)
+				        	execlp("mv","mv","ready_img1.jpg","robot_view.jpg",NULL);
+				        else
+				        	execlp("mv","mv","ready_img0.jpg","robot_view.jpg",NULL);
 				        exit(0);
 					}
+					//wait(&state);
 				}
 				else { 
 					bzero(buffer,image_size);
@@ -106,8 +124,8 @@ void HandleTCPClient(int clientSock) {
 
 		}	
 		if(numByteRcvd < 0)
-		DieWithUserMessage("recv() failed");
+			DieWithUserMessage("recv() failed");
 	}
-
+	printf("Close socket\n");
 	close(clientSock); // 클라이언트 소켓 종료
 }
