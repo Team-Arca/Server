@@ -81,7 +81,7 @@ void HandleTCPClient(int clientSock) {
 			case 1:
 				if(total_recv == image_size) {
 	         		total_recv =0;
-	         		flag = 2;
+	         		flag = 0;
 					close(image_file);
 		    		printf("success recv image\n");
 			        pid_t pid = fork();
