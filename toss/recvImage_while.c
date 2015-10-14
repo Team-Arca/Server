@@ -7,47 +7,31 @@
 #include <arpa/inet.h>
 #include <fcntl.h> // for open
 #include <unistd.h> // for close
+#include "socket.h"
 
 #define BUFFSIZE 10000
 void DieWithUserMessage(char * message);
-void HandleTCPClient(int clientSock);
+void HandleTCPClient(int clientSock, int adrSock);
 
 static const int MAXPENDING =5;
 
 int main(int argc, char* argv[]) {
 
-	in_port_t servPort = 4547;
-	//연결 요청을 처리하는 소켓 생성
-	int servSock; 
-	if((servSock = socket(PF_INET, SOCK_STREAM, 0)) < 0 )
-		DieWithUserMessage("socket() failed");
 
-	// 지역 주소 구조체 생성
-	struct sockaddr_in servAddr;					// 지역 주소
-	memset(&servAddr, 0, sizeof(struct sockaddr_in));			// 0으로 구조체 초기화
-	servAddr.sin_family = AF_INET;					// IPv4 주소 패밀리
-	servAddr.sin_addr.s_addr = htonl(INADDR_ANY);	// 호스트의 어떠한 IP로도 연결 요청 수락
-	servAddr.sin_port = htons(servPort);	// 지역포트
-
-	// 지역 주소에 바인드
-	if(bind(servSock, (struct sockaddr*) &servAddr, sizeof(servAddr)) < 0)
-		DieWithUserMessage("bind() failed");
-
-	// 소켓이 들어오는 요청을 처리할 수 있도록 설정
-	if(listen(servSock, MAXPENDING) < 0)
-		DieWithUserMessage("listen() failed");
-
+	int servSock[2]; 
+	servSock[0] = MakeSocket(4547); // recv image from AP
+	servSock[1] = MakeSocket(9865);	// send ack to Android
+	
 	while(1) { // 무한 반복
-		struct sockaddr_in clientAddr;
 		printf("wait accept\n");
-		socklen_t clientAddrlen = sizeof(clientAddr);
-
-		//클라이언트의 연결을 기다림
-		int clientSock = accept(servSock, (struct sockaddr *) &clientAddr, &clientAddrlen);
-		if( clientSock <0 )
-			DieWithUserMessage("accept() failed");
+		int clientSock 	= AcceptSocket(servSock[0]);
 		printf("client accept!!\n");
-		HandleTCPClient(clientSock);		
+		int adrSock		= AcceptSocket(servSock[1]);
+		printf("Adroid accept!!\n");
+		if( clientSock < 0 || adrSock < 0 )
+			DieWithUserMessage("accept() failed");
+		
+		HandleTCPClient(clientSock, adrSock);		
 	}
 }
 
@@ -56,7 +40,7 @@ void DieWithUserMessage(char * message){
 	exit(-1);
 }
 
-void HandleTCPClient(int clientSock) {
+void HandleTCPClient(int clientSock, int adrSock) {
 	unsigned char buffer[BUFFSIZE];
 	int image_file;
 	int total_recv=0;
@@ -67,9 +51,9 @@ void HandleTCPClient(int clientSock) {
 	int connect_state =1;
 	int store_state =0;
 	while(connect_state) {
+		bzero(buffer,BUFFSIZE);
 		switch(flag) {
 		case 0:
-			bzero(buffer,BUFFSIZE);
 			numByteRcvd = read(clientSock, buffer, 20);
 			if(numByteRcvd <=0){
 				printf("don't read data\n");
@@ -99,6 +83,17 @@ void HandleTCPClient(int clientSock) {
          		flag = 0;
 				close(image_file);
 	    		printf("success recv image\n");
+
+	    		// send ack to Android
+	    		sprintf(buffer,"%s","N");
+	    		numByteSent = write(adrSock, buffer, 1); 
+		        if(numByteSent <0){
+					printf("don't write data\n");
+					connect_state =0;
+					break;
+				}
+				printf("send ack message\n");
+
 		        pid_t pid = fork();
 		        if(pid == 0) {
 		        	printf("name change\n");
@@ -108,10 +103,8 @@ void HandleTCPClient(int clientSock) {
 			        	execlp("mv","mv","ready_img0.jpg","robot_view.jpg",NULL);
 			        exit(0);
 				}
-				write(pipe[0],"image change",20);
 			}
 			else { 
-				bzero(buffer,image_size);
 				numByteRcvd = read(clientSock, buffer, image_size - total_recv);
 				if(numByteRcvd <=0){
 					printf("recv data error\n");
