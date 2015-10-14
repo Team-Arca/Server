@@ -1,4 +1,6 @@
 #include "socket.h"
+
+#define MAXPENDING 5
 int MakeSocket(int port) {
 	printf("Make Socket called\n");
 	
@@ -36,7 +38,7 @@ int AcceptSocket(int socket) {
 	socklen_t clientAddrlen = sizeof(clientAddr);
 
 	//클라이언트의 연결을 기다림
-	int clientSock = accept(servSock, (struct sockaddr *) &clientAddr, &clientAddrlen);
+	int clientSock = accept(socket, (struct sockaddr *) &clientAddr, &clientAddrlen);
 	if( clientSock <0 ) {
 		printf("accept() faild\n");
 	}

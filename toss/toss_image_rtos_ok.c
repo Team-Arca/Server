@@ -65,7 +65,6 @@ int main(int argc, char* argv[]){
             bzero(buffer,BUFFSIZE);
             switch(flag) {
                 case 0:
-                    flag = 1;
                     // read image size from robot
                     numByteRcvd = read(robot_desc, buffer, 20);
                     if(numByteRcvd < 0) {
@@ -90,6 +89,7 @@ int main(int argc, char* argv[]){
                     else if (numByteSent != numByteRcvd) {
                         printf("send() sent unexpected number of bytes");
                     }
+                    flag = 1;
                     break;
 
                 case 1:
@@ -122,6 +122,7 @@ int main(int argc, char* argv[]){
                         printf("send() sent unexpected number of bytes");
                     }
                     flag = 0;
+                    connect_state = 0;
                     break;
             }
             

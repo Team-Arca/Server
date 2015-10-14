@@ -65,7 +65,6 @@ int main(int argc, char* argv[]){
             bzero(buffer,BUFFSIZE);
             switch(flag) {
                 case 0:
-                    flag = 1;
                     // read image size from robot
                     numByteRcvd = read(robot_desc, buffer, 20);
                     if(numByteRcvd < 0) {
@@ -90,12 +89,13 @@ int main(int argc, char* argv[]){
                     else if (numByteSent != numByteRcvd) {
                         printf("send() sent unexpected number of bytes");
                     }
+                    flag = 1;
                     break;
 
                 case 1:
                     if(total_recv == image_size) {
                         total_recv =0;
-                        flag = 2;
+                        flag = 0;
                         printf("send image\n");
                     }
                     else { 
@@ -104,24 +104,6 @@ int main(int argc, char* argv[]){
                         total_recv += numByteRcvd;
                         write(socket_desc, buffer, numByteRcvd);
                     }
-                    break;
-
-                default:  // toss "OK" message
-                    
-                    bzero(buffer,BUFFSIZE);
-                    numByteRcvd = read(socket_desc, buffer, 20);
-                    printf("server recv image? : %s\n",buffer);
-
-                    // send image size to server
-                    int numByteSent = write(robot_desc, buffer, numByteRcvd);
-                    if( numByteSent < 0){
-                        printf("send() failed");
-                        return 0;
-                    }
-                    else if (numByteSent != numByteRcvd) {
-                        printf("send() sent unexpected number of bytes");
-                    }
-                    flag = 0;
                     break;
             }
             

@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 		DieWithUserMessage("Error fork\n");
 	}
 	else if( pid == 0) { //child
-		close(pipe[0]);
+		close(pipe[1]);
 		char buffer[BUFFSIZE];
 
 		char* cmd_IP = "127.0.0.1";
@@ -44,19 +44,19 @@ int main(int argc, char* argv[]) {
 			}
 
 			while(1) {
-				int numByteRcvd = read(pipe[1],buffer,20);
+				int numByteRcvd = read(pipe[0],buffer,20);
 				printf("				%s\n",buffer);
 				if(buffer == "image chane")
 					write(cmd_desc, buffer, numByteRcvd);
 			}
 		}   
 		close(cmd_desc);
-		close(pipe[1]);
+		close(pipe[0]);
 	}
 	
 
 	// parent
-	close(pipe[1]);
+	close(pipe[0]);
 	in_port_t servPort = 4547;
 	//연결 요청을 처리하는 소켓 생성
 	int servSock; 
@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
 		HandleTCPClient(clientSock, pipe);		
 	}
 
-	close(pipe[0]);
+	close(pipe[1]);
 }
 
 void DieWithUserMessage(char * message){
@@ -104,54 +104,72 @@ void HandleTCPClient(int clientSock, int *pipe) {
 	int image_file;
 	int total_recv=0;
 	int image_size;
-	int flag = 1;
+	int flag = 0;
 	int numByteRcvd=0;
+	int numByteSent=0;
+	int connect_state =1;
+	int store_state =0;
+	while(connect_state) {
+		switch(flag) {
+		case 0:
+			bzero(buffer,BUFFSIZE);
+			numByteRcvd = read(clientSock, buffer, 20);
+			if(numByteRcvd <=0){
+				printf("don't read data\n");
+				connect_state =0;
+				break;
+			}
 
-	while(1) {
-		if(flag >= 1){
-			if(flag ==1) {	// recv image data size
-				flag = 0;
-				bzero(buffer,BUFFSIZE);
-				numByteRcvd = read(clientSock, buffer, 20);
-				image_size = atoi(buffer);
-				printf("image size : %d\n",image_size);
-				if(image_size == 0 || image_size > 10000) { // if image_size ie wrong value cloase socket
-					break;
-				}
-				image_file = open("ready_img.jpg", O_WRONLY | O_CREAT | O_TRUNC | S_IRWXU | S_IRWXG | S_IRWXO);
-			}
-			else {	// send ack message to robot
+			image_size = atoi(buffer);
+			printf("image size : %d\n",image_size);
+
+			if( !(image_size == 0 || image_size > 10000)) { // if image_size ie wrong value cloase socket
+				if(store_state)
+					image_file = open("ready_img0.jpg", O_WRONLY | O_CREAT | O_TRUNC , S_IRWXU | S_IRWXG | S_IRWXO);
+				else
+					image_file = open("ready_img1.jpg", O_WRONLY | O_CREAT | O_TRUNC , S_IRWXU | S_IRWXG | S_IRWXO);
 				flag = 1;
-				write(clientSock, "OK", 20);
 			}
+			else
+				printf("image size wrong... numByteRcvd : %d",numByteRcvd);
 			
-		}	
-		else{  // recv image JPEG data
-         	if(total_recv == image_size) {
+			break;
+
+		case 1:
+			if(total_recv == image_size) {
+				store_state = (store_state+1) %2;
          		total_recv =0;
-         		flag = 2;
+         		flag = 0;
 				close(image_file);
 	    		printf("success recv image\n");
-	    		
 		        pid_t pid = fork();
 		        if(pid == 0) {
-			        execlp("mv","mv","ready_img.jpg","robot_view.jpg",NULL);
+		        	printf("name change\n");
+			        if(store_state)
+			        	execlp("mv","mv","ready_img1.jpg","robot_view.jpg",NULL);
+			        else
+			        	execlp("mv","mv","ready_img0.jpg","robot_view.jpg",NULL);
 			        exit(0);
 				}
-				write(pipe[0],"image change",20);
+				write(pipe[1],"image change",20);
 			}
 			else { 
 				bzero(buffer,image_size);
 				numByteRcvd = read(clientSock, buffer, image_size - total_recv);
+				if(numByteRcvd <=0){
+					printf("recv data error\n");
+					connect_state =0;
+					break;
+				}
 				total_recv += numByteRcvd;
-				write(image_file, buffer, numByteRcvd); 
-				printf("write data size : %d",numByteRcvd);
+				numByteSent = write(image_file, buffer, numByteRcvd); 
+				printf("write data size : %d\n",numByteRcvd);
 			}
-    	}
-
+			break;
+		}	
 		if(numByteRcvd < 0)
-		DieWithUserMessage("recv() failed");
+			DieWithUserMessage("recv() failed");
 	}
-
+	printf("Close socket\n");
 	close(clientSock); // 클라이언트 소켓 종료
 }

@@ -63,6 +63,7 @@ void HandleTCPClient(int clientSock) {
 	int image_size;
 	int flag = 0;
 	int numByteRcvd=0;
+	int numByteSent=0;
 	int connect_state =1;
 	int store_state =0;
 	while(connect_state) {
@@ -94,7 +95,7 @@ void HandleTCPClient(int clientSock) {
 				if(total_recv == image_size) {
 					store_state = (store_state+1) %2;
 	         		total_recv =0;
-	         		flag = 0;
+	         		flag = 2;
 					close(image_file);
 		    		printf("success recv image\n");
 			        pid_t pid = fork();
@@ -111,8 +112,14 @@ void HandleTCPClient(int clientSock) {
 				else { 
 					bzero(buffer,image_size);
 					numByteRcvd = read(clientSock, buffer, image_size - total_recv);
+					if(numByteRcvd <=0){
+						printf("wrong image size \n");
+						connect_state =0;
+						break;
+					}
 					total_recv += numByteRcvd;
 					write(image_file, buffer, numByteRcvd); 
+
 					printf("write data size : %d\n",numByteRcvd);
 				}
 				break;

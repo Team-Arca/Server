@@ -10,54 +10,12 @@
 
 #define BUFFSIZE 10000
 void DieWithUserMessage(char * message);
-void HandleTCPClient(int clientSock, int *pip);
+void HandleTCPClient(int clientSock);
 
 static const int MAXPENDING =5;
 
 int main(int argc, char* argv[]) {
-	
-	int pip[2];
-	if(pipe(pip) < 0){
-		DieWithUserMessage("Error make pip\n");
-	}
 
-	int pid = fork();
-	if( pid < 0) {
-		DieWithUserMessage("Error fork\n");
-	}
-	else if( pid == 0) { //child
-		close(pip[1]);
-		char buffer[BUFFSIZE];
-
-		char* cmd_IP = "127.0.0.1";
-		int cmd_port = 9865;
-		struct sockaddr_in cmd_addr;
-		int cmd_desc = socket(PF_INET, SOCK_STREAM, 0);
-		bzero(&cmd_addr,sizeof(cmd_addr));
-		cmd_addr.sin_family = AF_INET;
-		cmd_addr.sin_addr.s_addr = inet_addr(cmd_IP);
-		cmd_addr.sin_port = htons(cmd_port);
-		while(1) {
-			if(connect(cmd_desc, (struct sockaddr *)&cmd_addr, sizeof(cmd_addr))<0) {
-				printf("Cannot cmd connect\n");
-				exit(0);
-			}
-
-			while(1) {
-				int numByteRcvd = read(pip[0],buffer,20);
-				printf("				%s\n",buffer);
-				
-				//if(buffer == "image change")
-					write(cmd_desc, buffer, numByteRcvd);
-			}
-		}   
-		close(cmd_desc);
-		close(pip[0]);
-	}
-	
-
-	// parent
-	close(pip[0]);
 	in_port_t servPort = 4547;
 	//연결 요청을 처리하는 소켓 생성
 	int servSock; 
@@ -89,10 +47,8 @@ int main(int argc, char* argv[]) {
 		if( clientSock <0 )
 			DieWithUserMessage("accept() failed");
 		printf("client accept!!\n");
-		HandleTCPClient(clientSock, pip);		
+		HandleTCPClient(clientSock);		
 	}
-
-	close(pip[1]);
 }
 
 void DieWithUserMessage(char * message){
@@ -100,7 +56,7 @@ void DieWithUserMessage(char * message){
 	exit(-1);
 }
 
-void HandleTCPClient(int clientSock, int *pip) {
+void HandleTCPClient(int clientSock) {
 	unsigned char buffer[BUFFSIZE];
 	int image_file;
 	int total_recv=0;
@@ -113,10 +69,11 @@ void HandleTCPClient(int clientSock, int *pip) {
 	while(connect_state) {
 		switch(flag) {
 		case 0:
+			
 			bzero(buffer,BUFFSIZE);
 			numByteRcvd = read(clientSock, buffer, 20);
 			if(numByteRcvd <=0){
-				printf("don't read data\n");
+				printf("don't read data \n");
 				connect_state =0;
 				break;
 			}
@@ -131,16 +88,12 @@ void HandleTCPClient(int clientSock, int *pip) {
 					image_file = open("ready_img1.jpg", O_WRONLY | O_CREAT | O_TRUNC , S_IRWXU | S_IRWXG | S_IRWXO);
 				flag = 1;
 			}
-			else
-				printf("image size wrong... numByteRcvd : %d",numByteRcvd);
-			
 			break;
-
 		case 1:
 			if(total_recv == image_size) {
 				store_state = (store_state+1) %2;
          		total_recv =0;
-         		flag = 0;
+         		flag = 2;
 				close(image_file);
 	    		printf("success recv image\n");
 		        pid_t pid = fork();
@@ -152,7 +105,7 @@ void HandleTCPClient(int clientSock, int *pip) {
 			        	execlp("mv","mv","ready_img0.jpg","robot_view.jpg",NULL);
 			        exit(0);
 				}
-				write(pip[1],"image change",20);
+				//wait(&state);
 			}
 			else { 
 				bzero(buffer,image_size);
@@ -167,6 +120,18 @@ void HandleTCPClient(int clientSock, int *pip) {
 				printf("write data size : %d\n",numByteRcvd);
 			}
 			break;
+
+		default:
+			flag = 0;
+			numByteSent = write(clientSock, "OK", 20);
+			if(numByteRcvd <=0){
+					printf("send Ack error\n");
+					connect_state =0;
+					break;
+			}
+			connect_state =0;
+			break;
+
 		}	
 		if(numByteRcvd < 0)
 			DieWithUserMessage("recv() failed");
